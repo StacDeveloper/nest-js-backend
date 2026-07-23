@@ -1,36 +1,49 @@
-import { Injectable } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt"
-import { ConfigService } from "@nestjs/config"
-import * as bcrypt from "bcryptjs"
-export interface JwtPayLoad {
-    userId: string;
-    role: "ADMIN" | "STAFF";
-}
+import { PrismaService } from "prisma/prisma.service";
+import { JwtAuthService } from "./jwt-service";
+import { LoginDto, registerDto } from "./dto/auth.dto";
+import { ConflictException, NotFoundException, UnauthorizedException } from "@nestjs/common";
 
+export class AuthService {
+    constructor(private readonly primsa: PrismaService, private readonly jwtAuthService: JwtAuthService) { }
 
-@Injectable()
-export class JwtAuthService {
-    constructor(
-        private readonly jwtService: JwtService,
-        private readonly configService: ConfigService
-    ) { }
+    async login(dto: LoginDto) {
+        const user = await this.primsa.user.findUnique({ where: { email: dto.email } })
+        if (!user) {
+            throw new UnauthorizedException("User not found")
+        }
+        const valid = await this.jwtAuthService.verifyPassword(dto.password, user.passwordHash)
+        if (!valid) {
+            throw new UnauthorizedException("Password is not valid")
+        }
+        const token = await this.jwtAuthService.signToken({ userId: user.id, role: user.role })
+        return { token }
 
-    async hashPassword(plain: string): Promise<string> {
-        return bcrypt.hash(plain, 10);
     }
-    async verifyPassword(plain: string, hash: string): Promise<boolean> {
-        return bcrypt.compare(plain, hash)
-    }
-    async signToken(payLoad: JwtPayLoad): Promise<string> {
-        return this.jwtService.signAsync(payLoad, {
-            secret: this.configService.get<string>("JWT_SECRET"),
-            expiresIn: "1d"
+    async register(dto: registerDto) {
+        const existing = await this.primsa.user.findUnique({ where: { email: dto.email } })
+        if (existing) {
+            throw new ConflictException("Email Id already exist, please use login")
+        }
+        const passwordHash = await this.jwtAuthService.hashPassword(dto.password)
+        const user = await this.primsa.user.create({
+            data: {
+                name: dto.name,
+                email: dto.email,
+                passwordHash,
+                role: dto.role
+            }
         })
+        return user
     }
-    async verifyToken(token: string): Promise<JwtPayLoad> {
-        return this.jwtService.verifyAsync<JwtPayLoad>(token, {
-            secret: this.configService.get<string>("JWT_SECRET")
+
+    async findMe(userId: string) {
+        const user = await this.primsa.user.findUnique({
+            where: { id: userId },
+            select: { id: true, name: true, email: true, role: true }
         })
+        if (!user) {
+            throw new NotFoundException("User not found")
+        }
+        return user
     }
 }
-

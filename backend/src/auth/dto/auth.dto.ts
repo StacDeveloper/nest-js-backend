@@ -1,30 +1,28 @@
-import {IsEmail, IsEnum, IsNotEmpty,IsOptional,IsString, MinLength} from "class-validator"
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from "class-validator"
 
-export class LoginDto{
+export class LoginDto {
     @IsEmail()
-    email:string
+    email: string
 
     @IsString()
     @IsNotEmpty()
-    password:string
+    password: string
 }
 
-interface Role{
-    role: "ADMIN" | "STAFF"
-}
-export class registerDto{
+type Role = "ADMIN" | "STAFF"
+export class registerDto {
     @IsString()
     @MinLength(1)
-    name:string
+    name: string
 
     @IsEmail()
-    email:string
+    email: string
 
     @IsString()
     @MinLength(6)
-    password:string
+    password: string
 
     @IsOptional()
     @IsEnum()
-    role:Role
+    role: Role = "STAFF"
 }
