@@ -1,14 +1,14 @@
-import { Body, Post, Res, UseGuards } from "@nestjs/common";
+import { Body, Get, Post, Req, Res, UseGuards } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { LoginDto, registerDto } from "./dto/auth.dto";
-import { Response } from "express";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
+import { JwtPayLoad } from "./jwt-service";
 
 export class AuthController {
     constructor(private readonly authSertice: AuthService) { }
 
     @Post("login")
-    async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
+    async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res) {
         const { token } = await this.authSertice.login(dto)
         res.cookie("token", token, {
             httpOnly: true,
@@ -24,14 +24,14 @@ export class AuthController {
         return { success: true, data: user, message: "New user created" }
     }
     @Post("logout")
-    async logout(@Res({ passthrough: true }) res: Response) {
+    async logout(@Res({ passthrough: true }) res) {
         res.clearCookie("token")
         return { success: true }
     }
     @UseGuards(JwtAuthGuard)
     @Get("me")
-    async findMe(@Request() req:Request){
-        const userId = await req.user.userId as string
-        return {success:true, data:await this.authSertice.findMe(userId)}
-    }   
+    async findMe(@Req() req: Request) {
+        const userId = await req.user.userId
+        return { success: true, data: await this.authSertice.findMe(userId) }
+    }
 }
